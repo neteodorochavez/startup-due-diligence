@@ -51,6 +51,8 @@ async def research_node(state: DueDiligenceState) -> Dict[str, Any]:
     for name in agent_names: 
         print(f"    Starting: {name}")
 
+    print()    
+
     start_time = time.time() 
 
     # Run all research agents in parallel
@@ -59,8 +61,8 @@ async def research_node(state: DueDiligenceState) -> Dict[str, Any]:
         run_company_profiler(startup_name, startup_description), 
         run_market_researcher(startup_name, startup_description), 
         run_competitor_scout(startup_name, startup_description), 
-        run_team_investigator(startup_name, startup_description), 
-        run_news_monitor(startup_name, startup_description),
+        run_team_investigator(startup_name), 
+        run_news_monitor(startup_name),
     ]
 
     #Gather results - don't fail on individual agent failures 
@@ -103,7 +105,7 @@ async def research_node(state: DueDiligenceState) -> Dict[str, Any]:
                 "success": True,
                 "execution_time_ms": result.execution_time_ms
             })
-            print(f"  DONE: {agent_name} ({result.execution_time_ms/1000:.1f}s)")
+            print(f"    DONE: {agent_name} ({result.execution_time_ms/1000:.1f}s)")
 
     elapsed = time.time() - start_time
     success_count = sum(1 for r in research_outputs if r.get("success"))
@@ -118,9 +120,36 @@ async def research_node(state: DueDiligenceState) -> Dict[str, Any]:
 
 
 async def validate_research_node(state: DueDiligenceState) -> Dict[str, Any]:
-    """Validate research completeness."""
-    print("Running: validate_research_node")
-    return {"current_stage": "research_validated"}
+    """Validate research completeness.
+    
+    Check if we have enough data to proceed with analysis. 
+    """
+
+    print("\nValidating reserach completeness...")
+
+    research_outputs = state.get("research_outputs", [])
+
+    # Count successful research agents 
+    success_count = sum(
+        1 for r in research_outputs if r.get("sucess", False)
+    )
+    total_count = len(research_outputs)
+
+    errors = [] 
+
+    # We need at least 50% success rate to continue 
+    if total_count > 0 and success_count / total_count < 0.5: 
+        errors.append(
+            f"CRITICAL: Only {success_count}/{total_count} research agents succeeeded."
+        )
+        print(f"CRITICAL: Only {success_count}/{total_count} succeeded.")
+    else: 
+        print(f"Validation passed: {success_count}/{total_count} succeeded.")
+    
+    return {
+        "current_stage": "research_validated", 
+        "errors": errors
+    }
 
 
 async def analysis_node(state: DueDiligenceState) -> Dict[str, Any]:

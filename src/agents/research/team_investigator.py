@@ -14,8 +14,8 @@ Find and report:
 3. Notable advisors and board members
 4. Team's track record and expertise fit 
 
-Output as JSON: {{...}
-}"""
+Output as JSON: {...}
+"""
 
     result = await run_agent(
         agent_name=TEAM_INVESTIGATOR.name,
