@@ -103,7 +103,7 @@ REPORT_GENERATOR = AgentConfig(
 
 DECISION_AGENT = AgentConfig(
     name="decision_agent",
-    model="opus",
+    model="sonnet",
     tools=[],
     timeout_seconds=180,
     system_prompt="""You are an investment decision advisor. Synthesize all available information to provide investment recommendations with confidence levels and key factors."""

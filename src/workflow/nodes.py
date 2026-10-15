@@ -23,6 +23,10 @@ from ..agents.analysis.risk_assessor import run_risk_assessor
 from ..agents.analysis.tech_evaluator import run_tech_evaluator
 from ..agents.analysis.legal_reviewer import run_legal_reviewer
 
+#Synthesis Agents 
+from ..agents.synthesis.report_generator import run_report_generator
+from ..agents.synthesis.decision_agent import run_decision_agent
+
 async def init_node(state: DueDiligenceState) -> Dict[str, Any]:
     """Initialize the workflow."""
     print("Running: init_node")
@@ -275,16 +279,98 @@ async def analysis_node(state: DueDiligenceState) -> Dict[str, Any]:
     }
 
 async def synthesis_node(state: DueDiligenceState) -> Dict[str, Any]:
-    """Run synthesis agents to generate report and decision."""
-    print("Running: synthesis_node")
+    """
+    Run synthesis agents to generate report and decision.
+    Report generator runs first, then decision agent uses the report.
+    """
+    print("\n" + "=" * 60)
+    print("STAGE 4: SYNTHESIS (2 agents)")
+    print("=" * 60)
+
+    startup_name = state['startup_name']
+    startup_description = state['startup_description']
+    research_outputs = state.get('research_outputs', []) 
+    analysis_outputs = state.get('analysis_outputs', [])
+    errors = [] 
+
+    start_time = time.time() 
+
+    # Reun report generator
+    print("     Starting: report_generator")
+    report_result = await run_report_generator(
+        startup_name=startup_name, 
+        startup_description=startup_description, 
+        research_outputs=research_outputs, 
+        analysis_outputs=analysis_outputs
+    )
+
+    full_report = None 
+    if isinstance(report_result, Exception) or not report_result.success: 
+        error_msg = str(report_result) if isinstance(report_result, Execption) else report_result.error
+        errors.append(f"report_generator: {error_msg}")
+        print(f"    FAILED: report_generator")
+    else: 
+        full_report = report_result.output or report_result.raw_output
+        print(f"    DONE: report_generator ({report_result.execution_time_ms/1000:.1f}s)")
+
+    # Run decision agent with the report 
+    print(f"    Starting: decision_agent")
+    risk_assessment = _get_agent_output(analysis_outputs, 'risk_assessor')
+
+    decision_result = await run_decision_agent(
+        startup_name=startup_name,
+        full_report=full_report[:4000] if full_report else "", 
+        risk_assessment=risk_assessment,
+        research_outputs=research_outputs,
+        analysis_outputs=analysis_outputs
+    )
+
+    investment_decision = None
+    if isinstance(decision_result, Exception) or not decision_result.success: 
+        error_msg = str(decision_result) if isinstance(decision_result, Exception) else decision_result.error
+        errors.append(f"decision_agent: {error_msg}")
+        print(f"    FAILED: decision_agent")
+    else: 
+        investment_decision = decision_result.output
+        print(f"    DONE: decision_agent ({decision_result.execution_time_ms/1000:.1f}s)")
+
+    elapsed = time.time() - start_time
+    success_count = (1 if full_report else 0) + (1 if investment_decision else 0)
+    print(f"\nSynthesis complete: {success_count}/2 agents in {elapsed:.1f}s")
+
     return {
-        "full_report": "Stub report",
-        "investment_decision": {"recommendation": "hold"},
+        "full_report": full_report,
+        "investment_decision": investment_decision,
+        "errors": errors, 
         "current_stage": "synthesis_complete"
     }
 
 async def output_node(state: DueDiligenceState) -> Dict[str, Any]:
-    """Finalize output."""
-    print("Running: output_node")
-    print("  Workflow complete!")
-    return {"current_stage": "complete"}
+    """
+    Finalize output and determine workflow status.
+    """
+    print("\n" + "=" * 60)
+    print("STAGE 5: OUTPUT")
+    print("=" * 60)
+
+    errors = state.get("errors", [])
+    full_report = state.get("full_report")
+    investment_decision = state.get("investment_decision")
+
+    # Determine final status
+    if full_report and investment_decision:
+        status = "complete"
+        print("Workflow completed successfully!")
+    elif full_report or investment_decision:
+        status = "partial"
+        print("Workflow completed with partial results")
+    else:
+        status = "failed"
+        print("Workflow failed")
+
+    if errors:
+        print(f"Total errors encountered: {len(errors)}")
+
+    return {
+        "current_stage": status
+    }
