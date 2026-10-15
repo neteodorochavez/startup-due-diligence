@@ -88,7 +88,7 @@ async def research_node(state: DueDiligenceState) -> Dict[str, Any]:
                 "success": False, 
                 "error": str(result)
             })
-            print(f"    FAILED: {agent_name} - {str(result):[:50]}")
+            print(f"    FAILED: {agent_name} - {str(result)[:50]}")
 
         elif not result.success: 
             # Agent returned but reported failure 
@@ -130,13 +130,13 @@ async def validate_research_node(state: DueDiligenceState) -> Dict[str, Any]:
     Check if we have enough data to proceed with analysis. 
     """
 
-    print("\nValidating reserach completeness...")
+    print("\nValidating research completeness...")
 
     research_outputs = state.get("research_outputs", [])
 
     # Count successful research agents 
     success_count = sum(
-        1 for r in research_outputs if r.get("sucess", False)
+        1 for r in research_outputs if r.get("success", False)
     )
     total_count = len(research_outputs)
 
@@ -263,7 +263,7 @@ async def analysis_node(state: DueDiligenceState) -> Dict[str, Any]:
         })
         print(f"    DONE: risk_assessor ({risk_result.execution_time_ms/1000:.1f}s)")
 
-    elapsed = time.time - start_time
+    elapsed = time.time() - start_time
     success_count = sum(1 for r in analysis_outputs if r.get('success'))
     print()
     print(f"Analysis complete: {success_count}/4 agents in {elapsed:.1f}s")

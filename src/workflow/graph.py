@@ -49,8 +49,10 @@ def create_due_diligence_graph() -> StateGraph:
         {"complete" : "analysis", "incomplete": "research", "failed": "output"}
     )
 
+    workflow.add_edge("research", "validate_research")
     workflow.add_edge("analysis", "synthesis")
     workflow.add_edge("synthesis", "output") 
+    
     workflow.add_edge("output", END)
 
     return workflow
